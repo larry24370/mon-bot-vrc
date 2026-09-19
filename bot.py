@@ -1,4 +1,5 @@
 import os
+import io
 import asyncio
 import discord
 from aiohttp import web
@@ -6,9 +7,10 @@ from aiohttp import web
 TOKEN = os.environ.get("DISCORD_TOKEN")
 
 # ==========================================
-# NOM DU SALON RÉSERVÉ AUX PHOTOS
+# CONFIGURATION DES SALONS
 # ==========================================
-NOM_DU_SALON = "photos"
+SALON_PUBLIC = "photos"      # Là où les gens déposent les photos
+SALON_ARCHIVE = "archives"   # Ton salon secret où elles sont stockées
 # ==========================================
 
 intents = discord.Intents.default()
@@ -22,33 +24,50 @@ format_image = "image/png"
 async def on_ready():
     print("=" * 40, flush=True)
     print(f"✅ Bot connecte : {client.user}", flush=True)
-    print(f"👀 En ecoute EXCLUSIVE dans le salon #{NOM_DU_SALON}", flush=True)
+    print(f"👀 En ecoute dans #{SALON_PUBLIC} -> Transfert vers #{SALON_ARCHIVE}", flush=True)
     print("=" * 40, flush=True)
 
 @client.event
 async def on_message(message):
     global derniere_image, format_image
 
-    # 1. On ignore les bots
+    # 1. Ignorer les messages des bots
     if message.author.bot:
         return
 
-    # 2. VÉRIFICATION STRICTE : On ignore TOUS les salons sauf "#photos" !
-    if message.channel.name != NOM_DU_SALON:
+    # 2. On n'écoute QUE le salon "photos"
+    if message.channel.name != SALON_PUBLIC:
         return
 
     # 3. Si le message contient une photo
     if message.attachments:
         piece_jointe = message.attachments[0]
         if any(piece_jointe.filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.webp']):
-            print(f"📸 Photo validee recue dans #{NOM_DU_SALON} de {message.author.name} !", flush=True)
-            
-            # Télécharge la photo en mémoire
-            derniere_image = await piece_jointe.read()
-            format_image = piece_jointe.content_type or "image/png"
-            
-            # Ajoute le ✅ sous la photo sur Discord
-            await message.add_reaction("✅")
+            print(f"📸 Photo recue de {message.author.name}, transfert en cours...", flush=True)
+
+            # A. Télécharge l'image en mémoire
+            image_bytes = await piece_jointe.read()
+            content_type = piece_jointe.content_type or "image/png"
+
+            # B. Cherche ton salon secret "archives" et reposte la photo dedans
+            salon_archive = discord.utils.get(message.guild.channels, name=SALON_ARCHIVE)
+            if salon_archive:
+                fichier = discord.File(io.BytesIO(image_bytes), filename=piece_jointe.filename)
+                await salon_archive.send(
+                    content=f"📸 **Photo envoyée par :** {message.author.mention} (`{message.author.name}`)",
+                    file=fichier
+                )
+
+            # C. Supprime immédiatement la photo de "#photos" pour que personne ne la voie !
+            try:
+                await message.delete()
+            except Exception as e:
+                print(f"Erreur suppression : {e}", flush=True)
+
+            # D. Met à jour l'image pour VRChat
+            derniere_image = image_bytes
+            format_image = content_type
+            print("✨ Image transmise a VRChat avec succes !", flush=True)
 
 # Serveur Web pour VRChat
 async def servir_photo(request):
