@@ -3,51 +3,54 @@ import asyncio
 import discord
 from aiohttp import web
 
+TOKEN = os.environ.get("DISCORD_TOKEN")
+
 # ==========================================
-# TES CONFIGURATIONS (Colle tes infos ici)
+# NOM DU SALON RÉSERVÉ AUX PHOTOS
 # ==========================================
-TOKEN = TOKEN = os.environ.get("DISCORD_TOKEN")
-CHANNEL_ID = 1550862745933578350  # (Exemple : 123456789012345678, sans guillemets)
+NOM_DU_SALON = "Gallerie-Larry24370"
 # ==========================================
 
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-# Mémoire pour stocker la dernière photo
 derniere_image = None
 format_image = "image/png"
 
 @client.event
 async def on_ready():
-    print("=" * 40)
-    print(f"✅ Bot connecte avec succes : {client.user}")
-    print(f"👀 En ecoute dans le salon ID : {CHANNEL_ID}")
-    print("=" * 40)
+    print("=" * 40, flush=True)
+    print(f"✅ Bot connecte : {client.user}", flush=True)
+    print(f"👀 En ecoute EXCLUSIVE dans le salon #{NOM_DU_SALON}", flush=True)
+    print("=" * 40, flush=True)
 
 @client.event
 async def on_message(message):
     global derniere_image, format_image
 
-    # Ignorer les messages des bots et vérifier qu'on est dans le bon salon
-    if message.author.bot or message.channel.id != CHANNEL_ID:
+    # 1. On ignore les bots
+    if message.author.bot:
         return
 
-    # Si le message contient un fichier (photo)
+    # 2. VÉRIFICATION STRICTE : On ignore TOUS les salons sauf "#photos" !
+    if message.channel.name != NOM_DU_SALON:
+        return
+
+    # 3. Si le message contient une photo
     if message.attachments:
         piece_jointe = message.attachments[0]
-        # Vérifie que c'est bien une image
         if any(piece_jointe.filename.lower().endswith(ext) for ext in ['.png', '.jpg', '.jpeg', '.webp']):
-            print(f"📸 Nouvelle photo recue de {message.author.name} !")
+            print(f"📸 Photo validee recue dans #{NOM_DU_SALON} de {message.author.name} !", flush=True)
             
-            # Télécharge l'image en mémoire
+            # Télécharge la photo en mémoire
             derniere_image = await piece_jointe.read()
             format_image = piece_jointe.content_type or "image/png"
             
-            # Ajoute une réaction ✅ sur Discord pour confirmer que c'est bien reçu
+            # Ajoute le ✅ sous la photo sur Discord
             await message.add_reaction("✅")
 
-# Serveur Web qui donne l'image à VRChat
+# Serveur Web pour VRChat
 async def servir_photo(request):
     global derniere_image, format_image
     if derniere_image is None:
@@ -59,7 +62,6 @@ async def servir_photo(request):
     })
 
 async def main():
-    # Démarre le serveur Web
     port = int(os.environ.get("PORT", 8080))
     app = web.Application()
     app.router.add_get('/photo.png', servir_photo)
@@ -69,7 +71,6 @@ async def main():
     site = web.TCPSite(runner, '0.0.0.0', port)
     await site.start()
 
-    # Démarre le Bot Discord
     await client.start(TOKEN)
 
 if __name__ == '__main__':
