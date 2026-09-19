@@ -8,7 +8,7 @@ TOKEN = os.environ.get("DISCORD_TOKEN")
 # ==========================================
 # NOM DU SALON RÉSERVÉ AUX PHOTOS
 # ==========================================
-NOM_DU_SALON = "Gallerie-Larry24370"
+NOM_DU_SALON = "photos"
 # ==========================================
 
 intents = discord.Intents.default()
