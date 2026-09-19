@@ -6,7 +6,7 @@ from aiohttp import web
 # ==========================================
 # TES CONFIGURATIONS (Colle tes infos ici)
 # ==========================================
-TOKEN = MTU1MDg4NDM4NzUxODgxMjE2MA.GImHPV.MXbAqoj7_8pdo3ae1Ez7mwspLNSo4_6Y2jdpfQ
+TOKEN = TOKEN = os.environ.get("DISCORD_TOKEN")
 CHANNEL_ID = 1550862745933578350  # (Exemple : 123456789012345678, sans guillemets)
 # ==========================================
 
